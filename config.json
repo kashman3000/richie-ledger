@@ -1,0 +1,22 @@
+{
+  "tasks": [
+    {
+      "url": "https://dorseywright.nasdaq.com/reports/indicator/tir",
+      "webhook_url": "https://n8n.booyah.com.au/webhook/951bb4f6-5f5d-49dd-a5b4-c10f8944a249",
+      "data_points": [
+        {
+          "name": "Australian Stock Exchange Table",
+          "type": "table",
+          "table_selector": "table:has-text('Australian Stock Exchange')",
+          "columns": [
+            {"name": "indicator", "index": 0},
+            {"name": "Current", "index": 1},
+            {"name": "chart level", "index": 2},
+            {"name": "signal/col", "index": 3},
+            {"name": "status", "index": 4}
+          ]
+        }
+      ]
+    }
+  ]
+}
