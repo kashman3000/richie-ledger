@@ -88,12 +88,40 @@ async def main(username, password):
                 await asyncio.sleep(random.uniform(2, 5))
                 await page.goto(url, wait_until='networkidle')
 
+                actions = task.get('actions', [])
+                if actions:
+                    logging.info(f"Performing {len(actions)} actions for task.")
+                    for action in actions:
+                        action_type = action.get('type')
+                        selector = action.get('selector')
+
+                        if not action_type or not selector:
+                            logging.warning("Skipping action due to missing 'type' or 'selector'.")
+                            continue
+
+                        logging.info(f"Performing action: {action_type} on selector: {selector}")
+                        await asyncio.sleep(random.uniform(1, 2))
+
+                        if action_type == 'click':
+                            await page.click(selector)
+                        elif action_type == 'select':
+                            value = action.get('value')
+                            if value:
+                                await page.select_option(selector, value=value)
+                            else:
+                                logging.warning(f"Skipping select action due to missing 'value'.")
+
+                    logging.info("Waiting for page to update after actions.")
+                    await page.wait_for_load_state('networkidle')
+                    await asyncio.sleep(random.uniform(2, 4))
+
                 all_scraped_data = {}
                 for data_point in data_points:
                     dp_type = data_point.get('type', 'single')
                     dp_name = data_point.get('name')
 
                     if dp_type == 'table':
+                        strategy = data_point.get('strategy', 'simple')
                         table_selector = data_point.get('table_selector')
                         columns = data_point.get('columns', [])
 
@@ -102,31 +130,58 @@ async def main(username, password):
                             continue
 
                         try:
-                            logging.info(f"Scraping table '{dp_name}' from {url} using selector '{table_selector}'")
-                            table_element = await page.wait_for_selector(table_selector, timeout=10000)
+                            logging.info(f"Scraping table '{dp_name}' with strategy '{strategy}' from {url} using selector '{table_selector}'")
+                            table_element = await page.wait_for_selector(table_selector, timeout=15000)
 
                             table_data = []
-                            rows = await table_element.query_selector_all('tbody tr')
-                            for row in rows:
-                                if await row.query_selector('th'):
-                                    continue  # Skip header row
+                            if strategy == 'simple':
+                                rows = await table_element.query_selector_all('tbody tr')
+                                for row in rows:
+                                    if await row.query_selector('th'):
+                                        continue
+                                    cells = await row.query_selector_all('td')
+                                    if not cells or len(cells) < len(columns):
+                                        continue
+                                    row_data = {}
+                                    for col_config in columns:
+                                        col_name = col_config.get('name')
+                                        col_index = col_config.get('index')
+                                        if col_name is not None and col_index is not None and col_index < len(cells):
+                                            cell_text = await cells[col_index].inner_text()
+                                            row_data[col_name] = cell_text.strip()
+                                    if row_data:
+                                        if 'Current' in row_data:
+                                            row_data['Current'] = row_data['Current'].split('(')[0].strip()
+                                        table_data.append(row_data)
 
-                                cells = await row.query_selector_all('td')
-                                if not cells or len(cells) < len(columns):
-                                    continue # Skip rows that don't have enough cells
+                            elif strategy == 'rowspan_sectors':
+                                rows = await table_element.query_selector_all('tbody tr')
+                                current_sector = "Unknown"
+                                for row in rows:
+                                    # Check for sector row
+                                    first_cell_in_row = await row.query_selector('td')
+                                    if first_cell_in_row and await first_cell_in_row.get_attribute('rowspan'):
+                                        sector_name_element = await first_cell_in_row.query_selector('h4')
+                                        if sector_name_element:
+                                            current_sector = await sector_name_element.inner_text()
 
-                                row_data = {}
-                                for col_config in columns:
-                                    col_name = col_config.get('name')
-                                    col_index = col_config.get('index')
-                                    if col_name is not None and col_index is not None and col_index < len(cells):
-                                        cell_text = await cells[col_index].inner_text()
-                                        row_data[col_name] = cell_text.strip()
+                                    # Process data row
+                                    if not await row.query_selector('th'):
+                                        cells = await row.query_selector_all('td')
 
-                                if row_data:
-                                    if 'Current' in row_data:
-                                        row_data['Current'] = row_data['Current'].split('(')[0].strip()
-                                    table_data.append(row_data)
+                                        # Data rows in this table have a specific structure
+                                        if len(cells) == len(columns):
+                                            row_data = {'sector': current_sector}
+                                            for col_config in columns:
+                                                col_name = col_config.get('name')
+                                                col_index = col_config.get('index')
+                                                if col_name is not None and col_index < len(cells):
+                                                    cell_text = await cells[col_index].inner_text()
+                                                    row_data[col_name] = cell_text.strip()
+
+                                            if 'Current' in row_data:
+                                                row_data['Current'] = row_data['Current'].split('(')[0].strip()
+                                            table_data.append(row_data)
 
                             all_scraped_data[dp_name] = table_data
 
