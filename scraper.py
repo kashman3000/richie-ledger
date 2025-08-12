@@ -67,20 +67,25 @@ async def main(username, password):
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page(viewport={'width': 1920, 'height': 1080})
+        context = await browser.new_context(viewport={'width': 1920, 'height': 1080})
 
-        if not await login(page, credentials):
+        # Log in only once
+        login_page = await context.new_page()
+        if not await login(login_page, credentials):
             await browser.close()
             logging.info("Exiting script due to login failure.")
             return
+        await login_page.close()
 
         for task in config.get('tasks', []):
+            page = await context.new_page()
             url = task.get('url')
             webhook_url = task.get('webhook_url')
             data_points = task.get('data_points', [])
 
             if not url or not webhook_url:
                 logging.warning("Skipping a task due to missing 'url' or 'webhook_url'.")
+                await page.close()
                 continue
 
             try:
@@ -132,7 +137,7 @@ async def main(username, password):
 
                         try:
                             logging.info(f"Scraping table '{dp_name}' with strategy '{strategy}' from {url} using selector '{table_selector}'")
-                            table_element = await page.wait_for_selector(table_selector, timeout=15000)
+                            table_element = await page.wait_for_selector(table_selector, timeout=30000)
 
                             table_data = []
                             if strategy == 'simple':
@@ -218,21 +223,23 @@ async def main(username, password):
                 if all_scraped_data:
                     logging.info(f"Scraped data from {url}: {all_scraped_data}")
 
-                    try:
-                        # Send the list of rows directly, as n8n webhooks often expect an array
-                        if len(all_scraped_data.values()) > 0:
-                            payload = list(all_scraped_data.values())[0]
+                    payload = list(all_scraped_data.values())[0]
+                    if payload:
+                        try:
                             response = requests.post(webhook_url, json=payload)
-                        else:
-                            logging.warning("No data scraped, not sending webhook.")
-                            response = None
-                        response.raise_for_status()
-                        logging.info(f"Successfully sent data to webhook: {webhook_url}")
-                    except requests.exceptions.RequestException as e:
-                        logging.error(f"Failed to send data to webhook {webhook_url}: {e}")
+                            response.raise_for_status()
+                            logging.info(f"Successfully sent data to webhook: {webhook_url}")
+                        except requests.exceptions.RequestException as e:
+                            logging.error(f"Failed to send data to webhook {webhook_url}: {e}")
+                    else:
+                        logging.warning("Scraped data is empty, not sending webhook.")
 
             except Exception as e:
                 logging.error(f"An error occurred while processing the task for URL {url}: {e}")
+            finally:
+                logging.info(f"Finished task, closing page. URL is {page.url}")
+                await page.close()
+                await asyncio.sleep(random.uniform(5, 10)) # Delay between tasks
 
         await browser.close()
 
