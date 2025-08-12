@@ -124,6 +124,7 @@ async def main(username, password):
                         strategy = data_point.get('strategy', 'simple')
                         table_selector = data_point.get('table_selector')
                         columns = data_point.get('columns', [])
+                        filter_config = data_point.get('filter')
 
                         if not table_selector or not columns:
                             logging.warning(f"Skipping table scraping for '{dp_name}' due to missing 'table_selector' or 'columns'.")
@@ -149,7 +150,14 @@ async def main(username, password):
                                         if col_name is not None and col_index is not None and col_index < len(cells):
                                             cell_text = await cells[col_index].inner_text()
                                             row_data[col_name] = cell_text.strip()
+
                                     if row_data:
+                                        if filter_config:
+                                            filter_col = filter_config.get('column')
+                                            filter_vals = filter_config.get('values', [])
+                                            if filter_col and filter_vals and row_data.get(filter_col) not in filter_vals:
+                                                continue
+
                                         if 'Current' in row_data:
                                             row_data['Current'] = row_data['Current'].split('(')[0].strip()
                                         table_data.append(row_data)
@@ -158,18 +166,14 @@ async def main(username, password):
                                 rows = await table_element.query_selector_all('tbody tr')
                                 current_sector = "Unknown"
                                 for row in rows:
-                                    # Check for sector row
                                     first_cell_in_row = await row.query_selector('td')
                                     if first_cell_in_row and await first_cell_in_row.get_attribute('rowspan'):
                                         sector_name_element = await first_cell_in_row.query_selector('h4')
                                         if sector_name_element:
                                             current_sector = await sector_name_element.inner_text()
 
-                                    # Process data row
                                     if not await row.query_selector('th'):
                                         cells = await row.query_selector_all('td')
-
-                                        # Data rows in this table have a specific structure
                                         if len(cells) == len(columns):
                                             row_data = {'sector': current_sector}
                                             for col_config in columns:
@@ -179,9 +183,16 @@ async def main(username, password):
                                                     cell_text = await cells[col_index].inner_text()
                                                     row_data[col_name] = cell_text.strip()
 
-                                            if 'Current' in row_data:
-                                                row_data['Current'] = row_data['Current'].split('(')[0].strip()
-                                            table_data.append(row_data)
+                                            if row_data:
+                                                if filter_config:
+                                                    filter_col = filter_config.get('column')
+                                                    filter_vals = filter_config.get('values', [])
+                                                    if filter_col and filter_vals and row_data.get(filter_col) not in filter_vals:
+                                                        continue
+
+                                                if 'Current' in row_data:
+                                                    row_data['Current'] = row_data['Current'].split('(')[0].strip()
+                                                table_data.append(row_data)
 
                             all_scraped_data[dp_name] = table_data
 

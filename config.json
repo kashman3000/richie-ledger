@@ -38,7 +38,46 @@
           "name": "ASX Sectors Table",
           "type": "table",
           "strategy": "rowspan_sectors",
-          "table_selector": "table.table-bordered.table-striped",
+          "table_selector": "table.table-bordered.table-striped:has-text('Basic Materials')",
+          "columns": [
+            {"name": "indicator", "index": 0},
+            {"name": "Current", "index": 1},
+            {"name": "chart level", "index": 2},
+            {"name": "signal/col", "index": 3},
+            {"name": "status", "index": 4}
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://dorseywright.nasdaq.com/reports/indicator/tir",
+      "webhook_url": "https://n8n.booyah.com.au/webhook-test/951bb4f6-5f5d-49dd-a5b4-c10f8944a249",
+      "actions": [
+        {
+          "type": "select",
+          "selector": "select[name='rpt']",
+          "value": "index"
+        },
+        {
+          "type": "click",
+          "selector": "form[name='tirform'] button:has-text('Go')"
+        }
+      ],
+      "data_points": [
+        {
+          "name": "Indices Table",
+          "type": "table",
+          "strategy": "rowspan_sectors",
+          "table_selector": "table.table-bordered.table-striped:has-text('All Ordinaries Index')",
+          "filter": {
+            "column": "sector",
+            "values": [
+              "All Ordinaries Index",
+              "S&P ASX 200 Index",
+              "S&P ASX 300 Index",
+              "S&P ASX Midcap 50 Index"
+            ]
+          },
           "columns": [
             {"name": "indicator", "index": 0},
             {"name": "Current", "index": 1},
