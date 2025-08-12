@@ -21,7 +21,7 @@
     },
     {
       "url": "https://dorseywright.nasdaq.com/reports/indicator/tir",
-      "webhook_url": "https://n8n.booyah.com.au/webhook/951bb4f6-5f5d-49dd-a5b4-c10f8944a249",
+      "webhook_url": "https://n8n.booyah.com.au/webhook/951bb4f6-5f5d-49dd-a5b4-c10f8944a250",
       "actions": [
         {
           "type": "select",
@@ -51,7 +51,7 @@
     },
     {
       "url": "https://dorseywright.nasdaq.com/reports/indicator/tir",
-      "webhook_url": "https://n8n.booyah.com.au/webhook/951bb4f6-5f5d-49dd-a5b4-c10f8944a249",
+      "webhook_url": "https://n8n.booyah.com.au/webhook/951bb4f6-5f5d-49dd-a5b4-c10f8944a251",
       "actions": [
         {
           "type": "select",
