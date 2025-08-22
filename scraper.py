@@ -15,7 +15,7 @@ async def login(page, credentials):
     """
     logging.info("Attempting to log in.")
     try:
-        await page.goto("https://dorseywright.nasdaq.com/login", wait_until='networkidle')
+        await page.goto("https://dorseywright.nasdaq.com/login", wait_until='domcontentloaded')
         await asyncio.sleep(random.uniform(1, 3))
 
         # Step 1: Enter username and click Next
@@ -66,7 +66,10 @@ async def main(username, password):
     credentials = {"username": username, "password": password}
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--disable-dev-shm-usage", "--no-sandbox"],
+        )
         context = await browser.new_context(viewport={'width': 1920, 'height': 1080})
 
         # Log in only once
